@@ -388,6 +388,11 @@ const offscreenEl = document.getElementById('offscreen-indicator');
 
 function checkOffscreenIndicator() {
   if (!activeRoot) return;
+  const stop = STOPS[currentStopIndex];
+  if (stop && stop.is360) {
+    offscreenEl.classList.add('hidden');
+    return;
+  }
   tempVec.copy(activeRoot.position);
   tempVec.project(camera);
   const isBehind = tempVec.z > 1;
@@ -395,7 +400,7 @@ function checkOffscreenIndicator() {
   if (isOff) {
     offscreenEl.classList.remove('hidden');
     const dir = isBehind || tempVec.x < 0 ? '⬅️ Pan Left' : 'Pan Right ➡️';
-    offscreenEl.textContent = `${dir} to find ${STOPS[currentStopIndex].title}`;
+    offscreenEl.textContent = `${dir} to find ${stop.title}`;
   } else {
     offscreenEl.classList.add('hidden');
   }

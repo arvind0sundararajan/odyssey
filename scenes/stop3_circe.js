@@ -1,5 +1,6 @@
-// Stop 3: Circe's Enchanted Stew (The Kitchen)
-// Floating bronze cauldron bubbling with purple potion & floating animal spirits
+// Stop 3: Circe & Her Enchanted Stew (Christopher Nolan IMAX Photorealistic VFX Edition)
+// Renders Circe standing behind her steaming hammered-bronze cauldron with 2.5D relief,
+// animated glowing cauldron vapor, and 3D rising potion embers.
 
 const BEAST_OUTCOMES = [
   '🐗 A Wild Golden Boar — bold, unstoppable near the snack table.',
@@ -11,119 +12,133 @@ const BEAST_OUTCOMES = [
 export default {
   id: 'circe',
   stepNumber: 'STOP III OF V',
-  title: 'Circe’s Enchanted Stew',
+  title: 'Circe & The Enchanted Stew',
   location: '📍 The Kitchen',
-  instruction: 'Find Circe’s simmering cauldron in the kitchen. TAP the bubbling stew to taste the potion!',
+  instruction: 'Aim your camera in the kitchen to see Circe at her cauldron. TAP the glowing stew!',
   afterTapTitle: '🔮 Circe’s Spell Takes Hold!',
   getAfterTapText() {
     const beast = BEAST_OUTCOMES[Math.floor(Math.random() * BEAST_OUTCOMES.length)];
-    return `The stew transforms you into: ${beast}\n\nWhile in the kitchen, ask someone nearby: "If you could only eat ONE meal for a 10-year voyage at sea, what are you picking?" Then head down the dead-end hallway off the kitchen!`;
+    return `Circe’s stew transforms you into: ${beast}\n\nWhile in the kitchen, ask someone nearby: "If you could only eat ONE meal for a 10-year voyage at sea, what are you picking?" Then head down the dead-end hallway off the kitchen!`;
   },
   nextButtonText: 'Head Down the Kitchen Hallway (The Whirlpool) →',
-  defaultTransform: { x: 0, y: -0.35, z: -2.6, scale: 1.15, rotY: 0 },
+  defaultTransform: { x: 0, y: -0.05, z: -2.8, scale: 1.25, rotY: 0 },
 
   createScene(THREE) {
     const root = new THREE.Group();
     const interactables = [];
 
-    const bronzeDark = new THREE.MeshStandardMaterial({
-      color: 0x3b2d22,
-      roughness: 0.4,
-      metalness: 0.85,
-    });
-    const goldMat = new THREE.MeshStandardMaterial({
-      color: 0xf4c44e,
-      roughness: 0.25,
-      metalness: 0.9,
-    });
+    const texLoader = new THREE.TextureLoader();
+    const circeTex = texLoader.load('/assets/circe_nolan.jpg');
+    circeTex.colorSpace = THREE.SRGBColorSpace;
 
-    // Cauldron Belly
-    const cauldron = new THREE.Mesh(
-      new THREE.SphereGeometry(0.68, 28, 20, 0, Math.PI * 2, 0.28, Math.PI * 0.72),
-      bronzeDark
-    );
-    root.add(cauldron);
-    interactables.push(cauldron);
-
-    // Ornate Gold Lip Rim
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.61, 0.055, 14, 36), goldMat);
-    rim.rotation.x = Math.PI / 2;
-    rim.position.y = 0.48;
-    root.add(rim);
-    interactables.push(rim);
-
-    // Side Ring Handles
-    [-0.66, 0.66].forEach((hx) => {
-      const handle = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.028, 10, 24), goldMat);
-      handle.position.set(hx, 0.25, 0);
-      root.add(handle);
-    });
-
-    // Glowing Bubbling Stew Surface inside Cauldron
-    const stewMat = new THREE.MeshBasicMaterial({
-      color: 0xb829ff,
+    const circeShaderMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uMap: { value: circeTex },
+        uTime: { value: 0 },
+        uSpellActive: { value: 0.0 },
+      },
+      transparent: true,
+      depthWrite: true,
       side: THREE.DoubleSide,
+      vertexShader: `
+        uniform sampler2D uMap;
+        uniform float uTime;
+        varying vec2 vUv;
+
+        void main() {
+          vUv = uv;
+          vec4 texColor = texture2D(uMap, uv);
+          float luma = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));
+
+          vec3 pos = position;
+          // 2.5D sculptural depth relief for Circe and the cauldron rim
+          pos.z += luma * 0.24;
+          // Subtle swaying motion for steam & robes
+          pos.x += sin(uTime * 1.6 + uv.y * 4.0) * 0.018 * uv.y;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D uMap;
+        uniform float uTime;
+        uniform float uSpellActive;
+        varying vec2 vUv;
+
+        void main() {
+          vec4 tex = texture2D(uMap, vUv);
+          float maxCh = max(max(tex.r, tex.g), tex.b);
+
+          // Alpha key out #000000 background + soft bottom fade
+          float bgAlpha = smoothstep(0.018, 0.08, maxCh);
+          float bottomFade = smoothstep(0.0, 0.08, vUv.y);
+          float alpha = bgAlpha * bottomFade;
+          if (alpha < 0.02) discard;
+
+          vec3 col = tex.rgb;
+
+          // Cauldron rim glow at UV (0.50, 0.28)
+          float distToStew = distance(vUv * vec2(1.0, 1.6), vec2(0.50, 0.44));
+          float stewGlow = smoothstep(0.32, 0.02, distToStew);
+          float shimmer = 0.5 + 0.5 * sin(uTime * 5.0 + vUv.x * 12.0);
+          col += vec3(0.75, 0.22, 1.0) * stewGlow * (0.18 + 0.18 * shimmer + uSpellActive * 0.85);
+
+          // Magical emerald-violet aura flare when tapped
+          if (uSpellActive > 0.01) {
+            float wave = 0.5 + 0.5 * sin(uTime * 10.0 - distance(vUv, vec2(0.5, 0.35)) * 18.0);
+            col += vec3(0.45, 0.15, 0.9) * wave * uSpellActive * 0.45;
+          }
+
+          gl_FragColor = vec4(col, alpha);
+        }
+      `,
     });
-    const stewSurface = new THREE.Mesh(new THREE.CircleGeometry(0.58, 32), stewMat);
-    stewSurface.rotation.x = -Math.PI / 2;
-    stewSurface.position.y = 0.45;
-    root.add(stewSurface);
-    interactables.push(stewSurface);
 
-    // Wooden Stirring Ladle resting in the stew
-    const ladleMat = new THREE.MeshStandardMaterial({ color: 0x734822, roughness: 0.7 });
-    const ladle = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 1.1, 10), ladleMat);
-    ladle.position.set(0.22, 0.75, 0);
-    ladle.rotation.z = -0.45;
-    root.add(ladle);
-    interactables.push(ladle);
+    const meshGeo = new THREE.PlaneGeometry(3.2, 2.4, 96, 72);
+    const circeMesh = new THREE.Mesh(meshGeo, circeShaderMat);
+    root.add(circeMesh);
+    interactables.push(circeMesh);
 
-    // Rising Potion Bubbles & Enchanted Runes
-    const bubbleGroup = new THREE.Group();
-    root.add(bubbleGroup);
-    const bubbles = [];
-    for (let i = 0; i < 18; i++) {
-      const bMat = new THREE.MeshBasicMaterial({
-        color: i % 2 === 0 ? 0xd966ff : 0x33ffcc,
+    // Pulsing Golden/Violet Reticle over the simmering stew pot
+    const stewTarget = new THREE.Mesh(
+      new THREE.RingGeometry(0.22, 0.27, 32),
+      new THREE.MeshBasicMaterial({
+        color: 0xd966ff,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.8,
+      })
+    );
+    stewTarget.position.set(0, -0.45, 0.32);
+    root.add(stewTarget);
+    interactables.push(stewTarget);
+
+    // 3D Enchanted Potion Sparks rising from the cauldron
+    const count = 65;
+    const pGeo = new THREE.BufferGeometry();
+    const pos = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 1.4;
+      pos[i * 3 + 1] = -0.5 + Math.random() * 1.6;
+      pos[i * 3 + 2] = 0.2 + Math.random() * 0.5;
+    }
+    pGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const particles = new THREE.Points(
+      pGeo,
+      new THREE.PointsMaterial({
+        color: 0xdf80ff,
+        size: 0.05,
         transparent: true,
         opacity: 0.85,
-      });
-      const b = new THREE.Mesh(
-        new THREE.SphereGeometry(0.045 + (i % 4) * 0.02, 12, 12),
-        bMat
-      );
-      b.position.set(
-        (Math.random() - 0.5) * 0.85,
-        0.5 + Math.random() * 1.1,
-        (Math.random() - 0.5) * 0.85
-      );
-      bubbleGroup.add(b);
-      bubbles.push(b);
-    }
-
-    // Orbiting Spectral Rings above the stew
-    const orbitGroup = new THREE.Group();
-    orbitGroup.position.y = 0.95;
-    root.add(orbitGroup);
-
-    const runeRing = new THREE.Mesh(
-      new THREE.TorusGeometry(0.75, 0.015, 8, 48),
-      new THREE.MeshBasicMaterial({ color: 0x33ffcc, transparent: true, opacity: 0.7 })
+      })
     );
-    runeRing.rotation.x = Math.PI / 2.3;
-    orbitGroup.add(runeRing);
-
-    const purpleLight = new THREE.PointLight(0xc433ff, 4.5, 6);
-    purpleLight.position.set(0, 0.9, 0.6);
-    root.add(purpleLight);
+    root.add(particles);
 
     root.userData = {
-      stewMat,
-      ladle,
-      bubbles,
-      orbitGroup,
-      purpleLight,
+      circeShaderMat,
+      stewTarget,
+      particles,
       tapped: false,
+      spellProgress: 0,
     };
 
     return { root, interactables };
@@ -133,34 +148,37 @@ export default {
     const d = root.userData;
     if (!d) return;
 
-    // Stirring ladle motion
-    const speed = d.tapped ? 6.0 : 1.8;
-    d.ladle.position.x = Math.cos(time * speed) * 0.22;
-    d.ladle.position.z = Math.sin(time * speed) * 0.22;
-    d.ladle.rotation.z = -0.35 + Math.sin(time * speed) * 0.18;
+    d.circeShaderMat.uniforms.uTime.value = time;
 
-    // Orbiting magic rings
-    d.orbitGroup.rotation.y = time * (d.tapped ? 3.5 : 0.9);
-    d.orbitGroup.rotation.z = Math.sin(time * 1.2) * 0.2;
+    const s = 1 + Math.sin(time * 4.5) * 0.14;
+    d.stewTarget.scale.set(s, s, 1);
 
-    // Rising bubbles
-    d.bubbles.forEach((b, idx) => {
-      b.position.y += delta * (d.tapped ? 1.8 : 0.55) * (1 + (idx % 3) * 0.3);
-      b.position.x += Math.sin(time * 3 + idx) * delta * 0.15;
-      if (b.position.y > 1.85) {
-        b.position.y = 0.46;
+    const pos = d.particles.geometry.attributes.position;
+    const speed = d.tapped ? 1.4 : 0.45;
+    for (let i = 0; i < pos.count; i++) {
+      let y = pos.getY(i) + delta * speed * (0.6 + (i % 3) * 0.3);
+      let x = pos.getX(i) + Math.sin(time * 2.5 + i) * delta * 0.22;
+      if (y > 1.15) {
+        y = -0.52;
+        x = (Math.random() - 0.5) * 1.1;
       }
-    });
+      pos.setY(i, y);
+      pos.setX(i, x);
+    }
+    pos.needsUpdate = true;
 
     if (d.tapped) {
-      d.stewMat.color.setHSL((time * 0.6) % 1.0, 0.95, 0.6);
-      d.purpleLight.intensity = 7.5 + Math.sin(time * 15) * 2.0;
+      d.spellProgress = Math.min(1.0, d.spellProgress + delta * 2.5);
+      d.circeShaderMat.uniforms.uSpellActive.value = d.spellProgress;
     }
   },
 
   onTap(root, audio) {
     const d = root.userData;
-    if (d) d.tapped = true;
+    if (d) {
+      d.tapped = true;
+      d.stewTarget.visible = false;
+    }
     if (audio) audio.playMagicChime();
   },
 };

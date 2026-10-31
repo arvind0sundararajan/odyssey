@@ -1,195 +1,131 @@
-// Stop 1: The Trojan Horse (Living Room Entrance)
-// Large wooden horse lying on its side with an open side hatch & glowing embers
+// Stop 1: The Trojan Horse (Christopher Nolan IMAX Photorealistic VFX Edition)
+// Renders a high-res photorealistic charred-oak Trojan Horse with 2.5D relief displacement,
+// alpha-keyed transparency over the live camera feed, flickering torchlight shader, & 3D embers.
 
 export default {
   id: 'horse',
   stepNumber: 'STOP I OF V',
   title: 'The Fallen Trojan Horse',
   location: '📍 Living Room Entrance',
-  instruction: 'Aim your camera around the living room and TAP the Trojan Horse lying on its side.',
+  instruction: 'Aim your camera around the living room and TAP the fallen Trojan Horse.',
   afterTapTitle: '⚔️ The Hatch Opens!',
   afterTapText:
     'Greek warriors have slipped out into the apartment! Before heading into the dark cave, turn to someone nearby and ask: "What is the best concert or live event you have ever snuck into (or wish you were at)?"',
   nextButtonText: 'Head to the Dark Room (The Cyclops) →',
-  defaultTransform: { x: 0, y: -0.4, z: -3.8, scale: 1.1, rotY: -0.35 },
+  defaultTransform: { x: 0, y: -0.15, z: -3.4, scale: 1.25, rotY: 0 },
 
   createScene(THREE) {
     const root = new THREE.Group();
     const interactables = [];
 
-    // Horse assembly tilted on its side (rotZ ~ 78 deg so it lies on its side)
-    const horseGroup = new THREE.Group();
-    horseGroup.rotation.z = Math.PI * 0.43;
-    horseGroup.rotation.x = 0.08;
-    root.add(horseGroup);
+    const texLoader = new THREE.TextureLoader();
+    const horseTex = texLoader.load('/assets/horse_nolan.jpg');
+    horseTex.colorSpace = THREE.SRGBColorSpace;
 
-    const woodMain = new THREE.MeshStandardMaterial({
-      color: 0x6e4726,
-      roughness: 0.78,
-      metalness: 0.1,
-    });
-    const woodDark = new THREE.MeshStandardMaterial({
-      color: 0x3d2512,
-      roughness: 0.85,
-      metalness: 0.15,
-    });
-    const bronzeMat = new THREE.MeshStandardMaterial({
-      color: 0xd4a24c,
-      roughness: 0.35,
-      metalness: 0.8,
-    });
+    // Custom GLSL Shader:
+    // 1. Keys out the pure black background cleanly for AR transparency
+    // 2. Uses luminance for subtle 2.5D vertex depth relief
+    // 3. Animates flickering torchlight inside the open side hatch & flares on tap
+    const horseShaderMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uMap: { value: horseTex },
+        uTime: { value: 0 },
+        uTapFlare: { value: 0.0 },
+      },
+      transparent: true,
+      depthWrite: true,
+      side: THREE.DoubleSide,
+      vertexShader: `
+        uniform sampler2D uMap;
+        uniform float uTime;
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          vec4 texColor = texture2D(uMap, uv);
+          float luma = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));
+          // Subtle 2.5D sculptural relief toward the camera
+          vec3 pos = position;
+          pos.z += luma * 0.22;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D uMap;
+        uniform float uTime;
+        uniform float uTapFlare;
+        varying vec2 vUv;
 
-    // Hollowed torso barrel (planked)
-    const bodyGeo = new THREE.CylinderGeometry(0.68, 0.72, 2.2, 12);
-    bodyGeo.rotateZ(Math.PI / 2);
-    const bodyMesh = new THREE.Mesh(bodyGeo, woodMain);
-    horseGroup.add(bodyMesh);
-    interactables.push(bodyMesh);
+        void main() {
+          vec4 tex = texture2D(uMap, vUv);
+          float luma = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
+          float maxCh = max(max(tex.r, tex.g), tex.b);
 
-    // Wooden ribs/straps around torso
-    for (let i = -0.85; i <= 0.85; i += 0.55) {
-      const ribGeo = new THREE.TorusGeometry(0.71, 0.045, 8, 16);
-      ribGeo.rotateY(Math.PI / 2);
-      const rib = new THREE.Mesh(ribGeo, woodDark);
-      rib.position.x = i;
-      horseGroup.add(rib);
-    }
+          // Smooth alpha key to remove the #000000 background while keeping dark charred timber
+          float alpha = smoothstep(0.018, 0.075, maxCh);
+          if (alpha < 0.02) discard;
 
-    // Neck & Head
-    const neckGroup = new THREE.Group();
-    neckGroup.position.set(-1.05, 0.45, 0);
-    neckGroup.rotation.z = 0.55;
-    horseGroup.add(neckGroup);
+          vec3 col = tex.rgb;
 
-    const neckMesh = new THREE.Mesh(new THREE.BoxGeometry(0.48, 1.15, 0.52), woodMain);
-    neckGroup.add(neckMesh);
-    interactables.push(neckMesh);
+          // Dynamic torchlight flicker around the open side hatch (center-right UV region)
+          float distToHatch = distance(vUv, vec2(0.56, 0.48));
+          float hatchMask = smoothstep(0.28, 0.02, distToHatch);
+          float flicker = 1.0 + sin(uTime * 14.0) * 0.12 + cos(uTime * 23.0) * 0.08;
+          col += vec3(1.0, 0.55, 0.15) * hatchMask * (0.12 * flicker + uTapFlare * 0.85);
 
-    // Mane (bronze/dark wood crest)
-    const maneMesh = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.1, 0.12), bronzeMat);
-    maneMesh.position.set(0.26, 0.05, 0);
-    neckGroup.add(maneMesh);
+          // Overall warm rim boost when tapped
+          col *= (1.0 + uTapFlare * 0.35);
 
-    // Head snout
-    const headMesh = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.42, 0.46), woodMain);
-    headMesh.position.set(-0.28, 0.55, 0);
-    headMesh.rotation.z = 0.35;
-    neckGroup.add(headMesh);
-    interactables.push(headMesh);
-
-    // Glowing Trojan Horse Eyes
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffaa22 });
-    const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 10), eyeMat);
-    leftEye.position.set(-0.25, 0.65, 0.24);
-    const rightEye = leftEye.clone();
-    rightEye.position.z = -0.24;
-    neckGroup.add(leftEye, rightEye);
-
-    // Ears
-    const earGeo = new THREE.ConeGeometry(0.09, 0.28, 6);
-    const earL = new THREE.Mesh(earGeo, woodDark);
-    earL.position.set(0.05, 0.82, 0.16);
-    const earR = earL.clone();
-    earR.position.z = -0.16;
-    neckGroup.add(earL, earR);
-
-    // 4 Legs + Wheeled siege platform
-    const legPositions = [
-      [-0.75, -0.85, 0.42],
-      [-0.75, -0.85, -0.42],
-      [0.75, -0.85, 0.42],
-      [0.75, -0.85, -0.42],
-    ];
-    legPositions.forEach(([lx, ly, lz]) => {
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.05, 0.22), woodDark);
-      leg.position.set(lx, ly, lz);
-      horseGroup.add(leg);
-      interactables.push(leg);
-
-      // Bronze wheel at foot
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.1, 16), bronzeMat);
-      wheel.rotation.x = Math.PI / 2;
-      wheel.position.set(lx, ly - 0.55, lz > 0 ? lz + 0.12 : lz - 0.12);
-      horseGroup.add(wheel);
+          gl_FragColor = vec4(col, alpha);
+        }
+      `,
     });
 
-    // Glowing Interior Cavity (visible on the side facing the camera)
-    const cavityMat = new THREE.MeshBasicMaterial({ color: 0xff5500 });
-    const cavity = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.62), cavityMat);
-    cavity.position.set(0, 0.05, 0.71);
-    horseGroup.add(cavity);
-    interactables.push(cavity);
+    // Subdivided plane for 2.5D sculptural depth (16:9 aspect ratio matching the 4K render)
+    const horseGeo = new THREE.PlaneGeometry(4.2, 2.36, 96, 54);
+    const horseMesh = new THREE.Mesh(horseGeo, horseShaderMat);
+    root.add(horseMesh);
+    interactables.push(horseMesh);
 
-    // Side Hatch Door (hinged, already partially open, swings wide on tap)
-    const hatchPivot = new THREE.Group();
-    hatchPivot.position.set(0, -0.26, 0.72);
-    hatchPivot.rotation.x = 0.65; // cracked open initially
-    horseGroup.add(hatchPivot);
-
-    const hatchDoor = new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.64, 0.08), woodDark);
-    hatchDoor.position.set(0, 0.32, 0);
-    hatchPivot.add(hatchDoor);
-    interactables.push(hatchDoor);
-
-    // Rope ladder / spears sticking out of the open side
-    const spearGroup = new THREE.Group();
-    spearGroup.position.set(0, 0.05, 0.75);
-    horseGroup.add(spearGroup);
-    for (let s = -1; s <= 1; s++) {
-      const spear = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.3, 8), bronzeMat);
-      spear.rotation.x = Math.PI / 2 + s * 0.15;
-      spear.rotation.z = s * 0.25;
-      spear.position.set(s * 0.22, 0, 0.35);
-      spearGroup.add(spear);
-    }
-
-    // Warm firelight inside the horse belly
-    const fireLight = new THREE.PointLight(0xff6600, 3.5, 6);
-    fireLight.position.set(0, 0.2, 1.1);
-    root.add(fireLight);
-
-    // Floating Embers Particle System
-    const emberCount = 55;
+    // 3D Volumetric Embers & Ash drifting out of the open hatch
+    const emberCount = 75;
     const emberGeo = new THREE.BufferGeometry();
     const positions = new Float32Array(emberCount * 3);
     for (let i = 0; i < emberCount; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 2.2;
-      positions[i * 3 + 1] = (Math.random() - 0.2) * 1.8;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 1.5 + 0.5;
+      positions[i * 3] = (Math.random() - 0.35) * 1.6;
+      positions[i * 3 + 1] = (Math.random() - 0.3) * 1.2;
+      positions[i * 3 + 2] = 0.15 + Math.random() * 0.65;
     }
     emberGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     const emberMat = new THREE.PointsMaterial({
-      color: 0xffaa33,
-      size: 0.08,
+      color: 0xff9933,
+      size: 0.045,
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.85,
     });
     const embers = new THREE.Points(emberGeo, emberMat);
     root.add(embers);
 
-    // Floating "TAP ME" Golden Ring Indicator above the open hatch
-    const ringGeo = new THREE.RingGeometry(0.22, 0.28, 32);
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: 0xffd700,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.85,
-    });
-    const tapRing = new THREE.Mesh(ringGeo, ringMat);
-    tapRing.position.set(0.2, 0.15, 0.95);
+    // Subtle pulsing golden reticle over the open hatch so guests know where to tap
+    const tapRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.18, 0.22, 32),
+      new THREE.MeshBasicMaterial({
+        color: 0xffd700,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.75,
+      })
+    );
+    tapRing.position.set(0.22, -0.02, 0.32);
     root.add(tapRing);
     interactables.push(tapRing);
 
     root.userData = {
-      horseGroup,
-      hatchPivot,
-      spearGroup,
-      fireLight,
+      horseMesh,
+      horseShaderMat,
       embers,
       tapRing,
-      cavityMat,
       tapped: false,
-      tapTime: 0,
+      flare: 0,
     };
 
     return { root, interactables };
@@ -199,34 +135,31 @@ export default {
     const d = root.userData;
     if (!d) return;
 
-    // Subtle breathing / settling motion
-    d.horseGroup.position.y = Math.sin(time * 1.5) * 0.03;
+    d.horseShaderMat.uniforms.uTime.value = time;
 
-    // Flickering interior firelight
-    d.fireLight.intensity = (d.tapped ? 7.0 : 3.2) + Math.sin(time * 13.0) * 0.8;
-
-    // Pulse tap ring
-    const s = 1 + Math.sin(time * 4) * 0.15;
+    // Pulse the tap target ring
+    const s = 1 + Math.sin(time * 4.0) * 0.14;
     d.tapRing.scale.set(s, s, 1);
 
-    // Rise embers
+    // Animate 3D embers rising out of the open hatch
     const pos = d.embers.geometry.attributes.position;
-    const speed = d.tapped ? 1.4 : 0.45;
+    const speed = d.tapped ? 1.35 : 0.38;
     for (let i = 0; i < pos.count; i++) {
-        let y = pos.getY(i) + delta * speed * (0.6 + (i % 5) * 0.2);
-        let x = pos.getX(i) + Math.sin(time * 2 + i) * delta * 0.2;
-        if (y > 1.8) y = -0.5;
-        pos.setY(i, y);
-        pos.setX(i, x);
+      let y = pos.getY(i) + delta * speed * (0.5 + (i % 4) * 0.25);
+      let x = pos.getX(i) + Math.sin(time * 2.2 + i) * delta * 0.15;
+      if (y > 1.1) {
+        y = -0.35;
+        x = 0.15 + (Math.random() - 0.5) * 0.65;
+      }
+      pos.setY(i, y);
+      pos.setX(i, x);
     }
     pos.needsUpdate = true;
 
-    // If tapped, animate hatch swinging wide open & spears thrusting out
     if (d.tapped) {
-      d.tapTime += delta;
-      d.hatchPivot.rotation.x = Math.min(2.35, d.hatchPivot.rotation.x + delta * 4.5);
-      d.spearGroup.position.z = Math.min(1.25, d.spearGroup.position.z + delta * 1.5);
-      d.cavityMat.color.setHex(0xffcc33);
+      d.flare = Math.min(1.0, d.flare + delta * 2.5);
+      d.horseShaderMat.uniforms.uTapFlare.value =
+        0.55 + Math.sin(time * 8.0) * 0.2;
     }
   },
 
