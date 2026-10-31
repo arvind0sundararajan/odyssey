@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>The Apartment Odyssey — WebAR Walkthrough</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Three.js ES Module via CDN -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <!-- Layer 1: Live Phone Camera Feed -->
+  <video id="camera-feed" autoplay playsinline muted></video>
+  <div id="camera-fallback"></div>
+
+  <!-- Layer 2: Transparent Three.js WebGL AR Canvas -->
+  <canvas id="ar-canvas"></canvas>
+
+  <!-- Splash Screen (Required on iOS/Android to grant Camera + Gyroscope permissions via single tap) -->
+  <div id="splash-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="greek-crest">🏛️ ⚔️ 🌊</div>
+      <h1>THE APARTMENT ODYSSEY</h1>
+      <p class="subtitle">An Interactive Augmented Reality Voyage</p>
+      <p class="desc">
+        Survive 5 mythical stops across the apartment—from the fallen Trojan Horse to the Cyclops’s cave, Circe’s stew, Charybdis, and the Sirens—to reach Ithaca.
+      </p>
+      <button id="start-btn" class="gold-btn">Begin the Odyssey (Enable Camera)</button>
+      <p class="hint-small">Works on mobile camera or desktop browser (drag to look around).</p>
+    </div>
+  </div>
+
+  <!-- Layer 3: Odyssey HUD Overlay -->
+  <div id="hud" class="hidden">
+    <!-- Top Bar: Progress Dots + Current Stop Info -->
+    <header class="top-bar">
+      <div class="top-row">
+        <span id="step-badge" class="step-badge">STOP I OF V</span>
+        <div id="progress-dots" class="progress-dots"></div>
+        <button id="tune-toggle-btn" class="icon-btn" title="Toggle Placement Tuner">⚙️ Tune</button>
+      </div>
+      <h2 id="stop-title">The Fallen Trojan Horse</h2>
+      <div id="stop-location" class="location-pill">📍 Living Room Entrance</div>
+    </header>
+
+    <!-- Center Direction / Tap Hint -->
+    <div id="center-reticle" class="reticle-hint">
+      <span id="offscreen-indicator" class="hidden">↩ Pan camera to find target</span>
+    </div>
+
+    <!-- Live Placement Tuner Panel (shown with ?tune=1 or ⚙️ Tune button) -->
+    <aside id="tuner-panel" class="tuner-panel hidden">
+      <div class="tuner-header">
+        <strong>🔧 AR Placement Tuner</strong>
+        <select id="tuner-stop-select"></select>
+      </div>
+      <div class="slider-row">
+        <label>Left/Right (X): <span id="val-x">0</span>m</label>
+        <input type="range" id="tune-x" min="-3" max="3" step="0.05" value="0" />
+      </div>
+      <div class="slider-row">
+        <label>Height (Y): <span id="val-y">0</span>m</label>
+        <input type="range" id="tune-y" min="-2.5" max="2.5" step="0.05" value="0" />
+      </div>
+      <div class="slider-row">
+        <label>Distance (Z): <span id="val-z">-3</span>m</label>
+        <input type="range" id="tune-z" min="-7" max="-1" step="0.1" value="-3" />
+      </div>
+      <div class="slider-row">
+        <label>Scale: <span id="val-scale">1</span>x</label>
+        <input type="range" id="tune-scale" min="0.3" max="3.0" step="0.05" value="1" />
+      </div>
+      <div class="slider-row">
+        <label>Rotate Y: <span id="val-roty">0</span> rad</label>
+        <input type="range" id="tune-roty" min="-3.14" max="3.14" step="0.05" value="0" />
+      </div>
+      <div class="tuner-actions">
+        <button id="recenter-btn" class="secondary-btn">🎯 Center Here</button>
+        <button id="save-placement-btn" class="gold-btn small">💾 Save for All Guests</button>
+      </div>
+      <div id="save-status" class="save-status"></div>
+    </aside>
+
+    <!-- Bottom Card: Instructions & Post-Tap Reveal -->
+    <footer class="bottom-card">
+      <p id="instruction-text" class="instruction-text">
+        Aim your camera around the living room and TAP the Trojan Horse.
+      </p>
+
+      <!-- Revealed after tapping the 3D object -->
+      <div id="after-tap-box" class="after-tap-box hidden">
+        <h3 id="after-tap-title">⚔️ The Hatch Opens!</h3>
+        <p id="after-tap-text"></p>
+        <button id="next-stop-btn" class="gold-btn">Next Stop →</button>
+      </div>
+    </footer>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
