@@ -11,7 +11,7 @@ export default {
   afterTapTitle: '⚔️ The Hatch Opens!',
   afterTapText:
     'Greek warriors have slipped out into the apartment! Before heading into the dark cave, turn to someone nearby and ask: "What is the best concert or live event you have ever snuck into (or wish you were at)?"',
-  nextButtonText: 'Head to the Dark Room (The Cyclops) →',
+  nextButtonText: 'Head to the Dark Room →',
   defaultTransform: { x: 0, y: -0.15, z: -3.4, scale: 1.25, rotY: 0 },
 
   createScene(THREE) {

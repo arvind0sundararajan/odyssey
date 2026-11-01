@@ -10,8 +10,8 @@ export default {
   instruction: 'Angle your camera toward the floor at the end of the hallway and TAP the churning Whirlpool!',
   afterTapTitle: '🌊 Dead End! Grab Earplugs & Turn Around!',
   afterTapText:
-    'Charybdis blocks the passage ahead! Grab a pair of physical EARPLUGS right here, put them in your ears (Beeswax of Odysseus style), and TURN AROUND 180° to walk back through the L-shaped Siren’s Strait!',
-  nextButtonText: 'Earplugs In — Turn Around for The Sirens →',
+    'Charybdis blocks the passage ahead! Grab a pair of physical EARPLUGS right here, put them in your ears, and TURN AROUND 180° to walk back through the L-shaped hallway!',
+  nextButtonText: 'Earplugs In — Turn Around →',
   defaultTransform: { x: 0, y: -0.75, z: -2.9, scale: 1.3, rotY: 0 },
 
   createScene(THREE) {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>The Apartment Odyssey — Scan to Enter</title>
+  <title>Scan the QR Code</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -23,71 +23,50 @@
       background: rgba(18, 16, 22, 0.94);
       border: 2px solid rgba(212, 175, 55, 0.6);
       border-radius: 28px;
-      padding: 36px 28px;
+      padding: 40px 32px;
       box-shadow: 0 25px 70px rgba(0, 0, 0, 0.85);
     }
-    .crest { font-size: 2.4rem; letter-spacing: 8px; margin-bottom: 12px; }
     h1 {
-      font-size: 2rem;
-      letter-spacing: 2px;
+      font-size: 2.1rem;
+      letter-spacing: 1px;
       color: #f5d061;
-      margin-bottom: 8px;
-    }
-    .sub {
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-      font-size: 0.95rem;
-      text-transform: uppercase;
-      letter-spacing: 2px;
-      color: #c8b896;
-      margin-bottom: 24px;
+      margin-bottom: 28px;
     }
     .qr-box {
       background: #ffffff;
       padding: 18px;
       border-radius: 20px;
       display: inline-block;
-      margin-bottom: 22px;
+      margin-bottom: 26px;
       box-shadow: 0 0 35px rgba(245, 208, 97, 0.25);
     }
     .qr-box img {
       display: block;
-      width: 260px;
-      height: 260px;
+      width: 280px;
+      height: 280px;
     }
     .steps {
       font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-      font-size: 1.05rem;
+      font-size: 1.15rem;
       line-height: 1.55;
       color: #e8e0cf;
-      margin-bottom: 14px;
-    }
-    .url-display {
-      font-family: monospace;
-      font-size: 0.85rem;
-      color: #f5d061;
-      opacity: 0.85;
-      word-break: break-all;
     }
   </style>
 </head>
 <body>
   <div class="poster">
-    <div class="crest">🏛️ ⚔️ 🌊</div>
-    <h1>THE APARTMENT ODYSSEY</h1>
-    <div class="sub">Interactive Augmented Reality Walkthrough</div>
+    <h1>Scan the QR code</h1>
     <div class="qr-box">
-      <img id="qr-img" alt="Scan to Begin Odyssey" />
+      <img id="qr-img" alt="Scan to Begin" />
     </div>
     <p class="steps">
-      <strong>Scan with your phone camera</strong> to begin the 5-stop AR voyage across the apartment—from the Fallen Trojan Horse to the Cyclops, Circe’s Cauldron, Charybdis, and the Sirens.
+      Scan with your phone camera to begin the 5-stop AR voyage across the Mediterranean Sea.
     </p>
-    <div id="url-text" class="url-display"></div>
   </div>
   <script>
-    const targetUrl = new URL('./', window.location.href).href;
-    document.getElementById('url-text').textContent = targetUrl;
+    const targetUrl = 'https://arvind0sundararajan.github.io/odyssey/';
     document.getElementById('qr-img').src =
-      'https://api.qrserver.com/v1/create-qr-code/?size=520x520&margin=8&data=' +
+      'https://api.qrserver.com/v1/create-qr-code/?size=560x560&margin=8&data=' +
       encodeURIComponent(targetUrl);
   </script>
 </body>

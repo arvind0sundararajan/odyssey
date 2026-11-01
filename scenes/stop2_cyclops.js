@@ -10,8 +10,8 @@ export default {
   instruction: 'Aim into the dark room to reveal the giant Cyclops. TAP his glowing central eye!',
   afterTapTitle: '👁️ The Cyclops is Blinded!',
   afterTapText:
-    '"NOBODY HAS BLINDED ME!" Polyphemus thrashingly rolls back the cave boulder. Escape to the Kitchen for Circe’s feast! (Ask someone along the way: What is your most irrational fear?)',
-  nextButtonText: 'Escape to the Kitchen (Circe’s Stew) →',
+    '"NOBODY HAS BLINDED ME!" Polyphemus thrashingly rolls back the cave boulder. Escape to the Kitchen! (Ask someone along the way: What is your most irrational fear?)',
+  nextButtonText: 'Escape to the Kitchen →',
   defaultTransform: { x: 0, y: 0.1, z: -2.9, scale: 1.35, rotY: 0 },
 
   createScene(THREE) {

@@ -20,7 +20,7 @@ export default {
     const beast = BEAST_OUTCOMES[Math.floor(Math.random() * BEAST_OUTCOMES.length)];
     return `Circe’s stew transforms you into: ${beast}\n\nWhile in the kitchen, ask someone nearby: "If you could only eat ONE meal for a 10-year voyage at sea, what are you picking?" Then head down the dead-end hallway off the kitchen!`;
   },
-  nextButtonText: 'Head Down the Kitchen Hallway (The Whirlpool) →',
+  nextButtonText: 'Head Down the Kitchen Hallway →',
   defaultTransform: { x: 0, y: -0.05, z: -2.8, scale: 1.25, rotY: 0 },
 
   createScene(THREE) {
