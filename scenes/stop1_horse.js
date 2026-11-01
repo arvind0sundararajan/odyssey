@@ -1,6 +1,8 @@
 // Stop 1: The Trojan Horse (360° Living Room Siege Scene)
-// Surrounds the user in 360° with the fallen Christopher Nolan Trojan Horse,
-// burning Troy siege pillars/braziers, scattered bronze spears, and 360° embers.
+// Uses Outer-Border Flood-Fill Cutout so 100% of dark charred timbers inside the horse
+// stay completely solid and opaque even in bright/medium apartment lighting!
+
+import { loadSolidCutoutTexture } from './cutout.js';
 
 export default {
   id: 'horse',
@@ -19,9 +21,9 @@ export default {
     const root = new THREE.Group();
     const interactables = [];
 
-    const texLoader = new THREE.TextureLoader();
-    const horseTex = texLoader.load('./assets/horse_nolan.jpg');
-    horseTex.colorSpace = THREE.SRGBColorSpace;
+    const horseTex = loadSolidCutoutTexture(THREE, './assets/horse_nolan.jpg', {
+      threshold: 20,
+    });
 
     function createHorseMaterial() {
       return new THREE.ShaderMaterial({
@@ -34,16 +36,10 @@ export default {
         depthWrite: true,
         side: THREE.DoubleSide,
         vertexShader: `
-          uniform sampler2D uMap;
-          uniform float uTime;
           varying vec2 vUv;
           void main() {
             vUv = uv;
-            vec4 texColor = texture2D(uMap, uv);
-            float luma = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));
-            vec3 pos = position;
-            pos.z += luma * 0.25;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
           }
         `,
         fragmentShader: `
@@ -54,29 +50,26 @@ export default {
 
           void main() {
             vec4 tex = texture2D(uMap, vUv);
-            float maxCh = max(max(tex.r, tex.g), tex.b);
-            float alpha = smoothstep(0.018, 0.075, maxCh);
-            if (alpha < 0.02) discard;
+            if (tex.a < 0.05) discard;
 
             vec3 col = tex.rgb;
             float distToHatch = distance(vUv, vec2(0.56, 0.48));
             float hatchMask = smoothstep(0.28, 0.02, distToHatch);
             float flicker = 1.0 + sin(uTime * 14.0) * 0.12 + cos(uTime * 23.0) * 0.08;
-            col += vec3(1.0, 0.55, 0.15) * hatchMask * (0.12 * flicker + uTapFlare * 0.85);
+            col += vec3(1.0, 0.55, 0.15) * hatchMask * (0.14 * flicker + uTapFlare * 0.85);
             col *= (1.0 + uTapFlare * 0.35);
 
-            gl_FragColor = vec4(col, alpha);
+            gl_FragColor = vec4(col, tex.a);
           }
         `,
       });
     }
 
     const horseMats = [];
-    // Place the Trojan Horse at 0° (ahead) and 180° (behind) so whichever way you enter, it's in view
     [0, 180].forEach((deg) => {
       const mat = createHorseMaterial();
       horseMats.push(mat);
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 2.36, 80, 45), mat);
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 2.36, 16, 16), mat);
       const rad = THREE.MathUtils.degToRad(deg);
       const dist = 3.3;
       mesh.position.set(Math.sin(rad) * dist, -0.15, -Math.cos(rad) * dist);
@@ -85,7 +78,7 @@ export default {
       interactables.push(mesh);
     });
 
-    // Place Burning Siege Pillars & Greek Spears at ±90° (left and right walls) to complete the 360° ring
+    // Burning Siege Pillars around ±90° to complete the 360° ring
     const bronzeMat = new THREE.MeshStandardMaterial({ color: 0xc8963e, roughness: 0.35, metalness: 0.85 });
     const stoneMat = new THREE.MeshStandardMaterial({ color: 0x2b2623, roughness: 0.85 });
     const flameMat = new THREE.MeshBasicMaterial({ color: 0xff6600 });
@@ -97,18 +90,15 @@ export default {
       pillarGroup.position.set(Math.sin(rad) * dist, -0.4, -Math.cos(rad) * dist);
       pillarGroup.lookAt(0, -0.4, 0);
 
-      // Ruined stone siege column
       const col = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 1.5, 12), stoneMat);
       pillarGroup.add(col);
       interactables.push(col);
 
-      // Bronze fire brazier bowl on top
       const bowl = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.22, 12), bronzeMat);
       bowl.rotation.x = Math.PI;
       bowl.position.y = 0.82;
       pillarGroup.add(bowl);
 
-      // Glowing flame orb
       const flame = new THREE.Mesh(new THREE.DodecahedronGeometry(0.16, 1), flameMat);
       flame.position.y = 0.98;
       pillarGroup.add(flame);
@@ -117,7 +107,7 @@ export default {
       root.add(pillarGroup);
     });
 
-    // 360° Volumetric Embers & Ash drifting all around the room
+    // 360° Volumetric Embers
     const emberCount = 150;
     const emberGeo = new THREE.BufferGeometry();
     const positions = new Float32Array(emberCount * 3);
@@ -131,7 +121,7 @@ export default {
     emberGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     const embers = new THREE.Points(
       emberGeo,
-      new THREE.PointsMaterial({ color: 0xff9933, size: 0.05, transparent: true, opacity: 0.85 })
+      new THREE.PointsMaterial({ color: 0xff9933, size: 0.055, transparent: true, opacity: 0.9 })
     );
     root.add(embers);
 
@@ -139,7 +129,6 @@ export default {
       horseMats,
       embers,
       tapped: false,
-      flare: 0,
     };
 
     return { root, interactables };

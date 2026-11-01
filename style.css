@@ -22,6 +22,8 @@ html, body {
   height: 100vh;
   object-fit: cover;
   z-index: 1;
+  /* Moody Christopher Nolan IMAX color grade so AR objects pop in medium apartment lighting */
+  filter: brightness(0.56) contrast(1.18) saturate(0.86);
 }
 
 #camera-fallback {

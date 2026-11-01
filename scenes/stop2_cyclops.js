@@ -1,5 +1,7 @@
 // Stop 2: Polyphemus the Cyclops (360° Dark Cave Scene)
-// Surrounds the user in 360° with jagged cave rock walls & Polyphemus looming in the cave.
+// Uses Outer-Border Flood-Fill Cutout so 100% of his beard, dark shadows, and pupil stay solid opaque!
+
+import { loadSolidCutoutTexture } from './cutout.js';
 
 export default {
   id: 'cyclops',
@@ -18,12 +20,14 @@ export default {
     const root = new THREE.Group();
     const interactables = [];
 
-    const texLoader = new THREE.TextureLoader();
-    const cyclopsTex = texLoader.load('./assets/cyclops_nolan.jpg');
-    cyclopsTex.colorSpace = THREE.SRGBColorSpace;
-
-    const rocksTex = texLoader.load('./assets/sirens_rocks_nolan.jpg');
-    rocksTex.colorSpace = THREE.SRGBColorSpace;
+    const cyclopsTex = loadSolidCutoutTexture(THREE, './assets/cyclops_nolan.jpg', {
+      threshold: 18,
+      keepBottom: true,
+    });
+    const rocksTex = loadSolidCutoutTexture(THREE, './assets/sirens_rocks_nolan.jpg', {
+      threshold: 18,
+      keepBottom: true,
+    });
 
     function createCyclopsMaterial() {
       return new THREE.ShaderMaterial({
@@ -36,21 +40,16 @@ export default {
         depthWrite: true,
         side: THREE.DoubleSide,
         vertexShader: `
-          uniform sampler2D uMap;
           uniform float uTime;
           uniform float uBlinded;
           varying vec2 vUv;
           void main() {
             vUv = uv;
-            vec4 texColor = texture2D(uMap, uv);
-            float luma = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));
             vec3 pos = position;
-            float centerBoost = smoothstep(0.55, 0.0, distance(uv, vec2(0.5, 0.58))) * 0.22;
-            pos.z += luma * 0.26 + centerBoost;
-            pos.y += sin(uTime * 2.0) * 0.035 * uv.y;
+            pos.y += sin(uTime * 2.0) * 0.03 * uv.y;
             if (uBlinded > 0.01) {
-              pos.x += sin(uTime * 32.0 + uv.y * 6.0) * 0.08 * uBlinded;
-              pos.y += cos(uTime * 27.0) * 0.05 * uBlinded;
+              pos.x += sin(uTime * 32.0 + uv.y * 6.0) * 0.07 * uBlinded;
+              pos.y += cos(uTime * 27.0) * 0.04 * uBlinded;
             }
             gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
           }
@@ -62,13 +61,10 @@ export default {
           varying vec2 vUv;
           void main() {
             vec4 tex = texture2D(uMap, vUv);
-            float maxCh = max(max(tex.r, tex.g), tex.b);
-            float bgAlpha = smoothstep(0.02, 0.085, maxCh);
-            float bottomFade = smoothstep(0.0, 0.18, vUv.y);
-            float sideFade = smoothstep(0.0, 0.09, vUv.x) * smoothstep(1.0, 0.91, vUv.x);
-            float topFade = smoothstep(1.0, 0.94, vUv.y);
-            float alpha = bgAlpha * bottomFade * sideFade * topFade;
-            if (alpha < 0.02) discard;
+            float bottomFade = smoothstep(0.0, 0.14, vUv.y);
+            float sideFade = smoothstep(0.0, 0.07, vUv.x) * smoothstep(1.0, 0.93, vUv.x);
+            float alpha = tex.a * bottomFade * sideFade;
+            if (alpha < 0.04) discard;
 
             vec3 col = tex.rgb;
             vec2 eyeUv = vec2(0.50, 0.715);
@@ -90,11 +86,10 @@ export default {
     }
 
     const cyclopsMats = [];
-    // Place Polyphemus at 0° and 180° so whichever way you turn in the dark room, he looms before you
     [0, 180].forEach((deg) => {
       const mat = createCyclopsMaterial();
       cyclopsMats.push(mat);
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 2.55, 80, 60), mat);
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 2.55, 32, 32), mat);
       const rad = THREE.MathUtils.degToRad(deg);
       const dist = 2.8;
       mesh.position.set(Math.sin(rad) * dist, 0.1, -Math.cos(rad) * dist);
@@ -103,7 +98,6 @@ export default {
       interactables.push(mesh);
     });
 
-    // Surround the sides (±65°, ±115°) with dark jagged cave rock walls in 360°
     const caveWallMat = new THREE.ShaderMaterial({
       uniforms: { uMap: { value: rocksTex } },
       transparent: true,
@@ -121,15 +115,12 @@ export default {
         varying vec2 vUv;
         void main() {
           vec4 tex = texture2D(uMap, vUv);
-          float maxCh = max(max(tex.r, tex.g), tex.b);
-          float sideFade = smoothstep(0.0, 0.14, vUv.x) * smoothstep(1.0, 0.86, vUv.x);
           float bottomFade = smoothstep(0.0, 0.15, vUv.y);
           float sirenMask = 1.0 - smoothstep(0.25, 0.05, distance(vUv, vec2(0.5, 0.78)));
-          float alpha = smoothstep(0.015, 0.08, maxCh) * sideFade * bottomFade * sirenMask;
-          if (alpha < 0.02) discard;
-          // Warm dark cave tint
+          float alpha = tex.a * bottomFade * sirenMask;
+          if (alpha < 0.04) discard;
           vec3 col = tex.rgb * vec3(1.1, 0.75, 0.55);
-          gl_FragColor = vec4(col, alpha * 0.9);
+          gl_FragColor = vec4(col, alpha);
         }
       `,
     });
@@ -137,14 +128,13 @@ export default {
     [-65, 65, -115, 115].forEach((deg) => {
       const rad = THREE.MathUtils.degToRad(deg);
       const dist = 3.1;
-      const wall = new THREE.Mesh(new THREE.PlaneGeometry(3.8, 2.5, 32, 24), caveWallMat);
+      const wall = new THREE.Mesh(new THREE.PlaneGeometry(3.8, 2.5, 16, 16), caveWallMat);
       wall.position.set(Math.sin(rad) * dist, 0.0, -Math.cos(rad) * dist);
       wall.lookAt(0, 0.0, 0);
       root.add(wall);
       interactables.push(wall);
     });
 
-    // 360° Red Cave Sparks / Dust
     const sparkCount = 120;
     const sparkGeo = new THREE.BufferGeometry();
     const sparkPos = new Float32Array(sparkCount * 3);

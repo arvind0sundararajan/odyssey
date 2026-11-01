@@ -1,6 +1,7 @@
 // Stop 3: Circe & Her Enchanted Stew (360° Kitchen Sanctum Scene)
-// Surrounds the user in 360° with Circe at her steaming cauldron, golden Greek temple columns,
-// and 360° swirling violet/emerald potion sparks.
+// Uses Outer-Border Flood-Fill Cutout so Circe's dark hair, robes, and bronze cauldron stay 100% solid opaque!
+
+import { loadSolidCutoutTexture } from './cutout.js';
 
 const BEAST_OUTCOMES = [
   '🐗 A Wild Golden Boar — bold, unstoppable near the snack table.',
@@ -28,9 +29,10 @@ export default {
     const root = new THREE.Group();
     const interactables = [];
 
-    const texLoader = new THREE.TextureLoader();
-    const circeTex = texLoader.load('./assets/circe_nolan.jpg');
-    circeTex.colorSpace = THREE.SRGBColorSpace;
+    const circeTex = loadSolidCutoutTexture(THREE, './assets/circe_nolan.jpg', {
+      threshold: 18,
+      keepBottom: true,
+    });
 
     function createCirceMaterial() {
       return new THREE.ShaderMaterial({
@@ -43,17 +45,10 @@ export default {
         depthWrite: true,
         side: THREE.DoubleSide,
         vertexShader: `
-          uniform sampler2D uMap;
-          uniform float uTime;
           varying vec2 vUv;
           void main() {
             vUv = uv;
-            vec4 texColor = texture2D(uMap, uv);
-            float luma = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));
-            vec3 pos = position;
-            pos.z += luma * 0.24;
-            pos.x += sin(uTime * 1.6 + uv.y * 4.0) * 0.018 * uv.y;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
           }
         `,
         fragmentShader: `
@@ -63,12 +58,9 @@ export default {
           varying vec2 vUv;
           void main() {
             vec4 tex = texture2D(uMap, vUv);
-            float maxCh = max(max(tex.r, tex.g), tex.b);
-            float bgAlpha = smoothstep(0.018, 0.08, maxCh);
             float bottomFade = smoothstep(0.0, 0.08, vUv.y);
-            float sideFade = smoothstep(0.0, 0.08, vUv.x) * smoothstep(1.0, 0.92, vUv.x);
-            float alpha = bgAlpha * bottomFade * sideFade;
-            if (alpha < 0.02) discard;
+            float alpha = tex.a * bottomFade;
+            if (alpha < 0.04) discard;
 
             vec3 col = tex.rgb;
             float distToStew = distance(vUv * vec2(1.0, 1.6), vec2(0.50, 0.44));
@@ -87,11 +79,10 @@ export default {
     }
 
     const circeMats = [];
-    // Place Circe & Her Cauldron at 3 angles around 360° (0°, 120°, -120°) so she is visible in every direction
     [0, 120, -120].forEach((deg) => {
       const mat = createCirceMaterial();
       circeMats.push(mat);
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 2.4, 72, 54), mat);
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 2.4, 16, 16), mat);
       const rad = THREE.MathUtils.degToRad(deg);
       const dist = 2.85;
       mesh.position.set(Math.sin(rad) * dist, -0.05, -Math.cos(rad) * dist);
@@ -100,7 +91,6 @@ export default {
       interactables.push(mesh);
     });
 
-    // Place Enchanted Palace Columns & Glowing Orbs at ±60° and 180° between the cauldrons
     const marbleMat = new THREE.MeshStandardMaterial({ color: 0x3a2d44, roughness: 0.5, metalness: 0.3 });
     const orbMat = new THREE.MeshBasicMaterial({ color: 0xd966ff });
     [60, -60, 180].forEach((deg) => {
@@ -118,7 +108,6 @@ export default {
       root.add(colGroup);
     });
 
-    // 360° Enchanted Potion Sparks surrounding the kitchen
     const count = 140;
     const pGeo = new THREE.BufferGeometry();
     const pos = new Float32Array(count * 3);

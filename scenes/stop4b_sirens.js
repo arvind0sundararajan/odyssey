@@ -1,6 +1,8 @@
 // Stop 4B: The Sirens from Afar & Odysseus (Matt Damon) Tied to the Mast
-// FULL 360° CAVERNOUS CORRIDOR: Surrounds the viewer in 360 degrees with jagged wet
-// basalt sea stacks, swirling ocean mist, distant shadowy Sirens, and Matt Damon tied to the mast.
+// Uses Outer-Border Flood-Fill Cutout so the black basalt sea stacks, shadowy Sirens,
+// and Matt Damon's hair/armor stay 100% solid opaque even in medium apartment lighting!
+
+import { loadSolidCutoutTexture } from './cutout.js';
 
 export default {
   id: 'sirens',
@@ -14,21 +16,21 @@ export default {
   afterTapText:
     'Unlike Odysseus screaming at the mast, your earplugs saved you! As you step back into the Living Room, ask the first person you see: "What is the ultimate guilty-pleasure song that would make you crash your ship into the rocks?"',
   nextButtonText: 'Step Back into the Living Room (Ithaca) →',
-  // Centered at (0, 0, 0) so the 360° ring of cavernous rocks surrounds the camera
   defaultTransform: { x: 0, y: 0.0, z: 0.0, scale: 1.0, rotY: 0 },
 
   createScene(THREE) {
     const root = new THREE.Group();
     const interactables = [];
 
-    const texLoader = new THREE.TextureLoader();
-    const rocksTex = texLoader.load('./assets/sirens_rocks_nolan.jpg');
-    rocksTex.colorSpace = THREE.SRGBColorSpace;
+    const rocksTex = loadSolidCutoutTexture(THREE, './assets/sirens_rocks_nolan.jpg', {
+      threshold: 16,
+      keepBottom: true,
+    });
+    const damonTex = loadSolidCutoutTexture(THREE, './assets/odysseus_mast_nolan.jpg', {
+      threshold: 18,
+      keepBottom: true,
+    });
 
-    const damonTex = texLoader.load('./assets/odysseus_mast_nolan.jpg');
-    damonTex.colorSpace = THREE.SRGBColorSpace;
-
-    // Factory for a 2.5D cavernous rock formation shader material (with per-instance phase & flip)
     function createRockShaderMaterial(phaseOffset = 0, flipX = 1.0, hideSirens = false) {
       return new THREE.ShaderMaterial({
         uniforms: {
@@ -40,23 +42,14 @@ export default {
           uHideSirens: { value: hideSirens ? 1.0 : 0.0 },
         },
         transparent: true,
-        depthWrite: false,
+        depthWrite: true,
         side: THREE.DoubleSide,
         vertexShader: `
-          uniform sampler2D uMap;
-          uniform float uTime;
-          uniform float uPhase;
           uniform float uFlipX;
           varying vec2 vUv;
           void main() {
             vUv = vec2(uFlipX < 0.0 ? 1.0 - uv.x : uv.x, uv.y);
-            vec4 tex = texture2D(uMap, vUv);
-            float luma = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
-            vec3 pos = position;
-            // Strong 2.5D cavernous rock protrusion toward the center of the hallway
-            pos.z += luma * 0.45;
-            pos.y += sin(uTime * 1.2 + uPhase + uv.x * 4.0) * 0.025;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
           }
         `,
         fragmentShader: `
@@ -68,19 +61,15 @@ export default {
           varying vec2 vUv;
           void main() {
             vec4 tex = texture2D(uMap, vUv);
-            float maxCh = max(max(tex.r, tex.g), tex.b);
-            float sideFade = smoothstep(0.0, 0.12, vUv.x) * smoothstep(1.0, 0.88, vUv.x);
-            float bottomFade = smoothstep(0.0, 0.14, vUv.y);
-            float topFade = smoothstep(1.0, 0.92, vUv.y);
-            float alpha = smoothstep(0.015, 0.08, maxCh) * sideFade * bottomFade * topFade;
+            float bottomFade = smoothstep(0.0, 0.12, vUv.y);
+            float alpha = tex.a * bottomFade;
 
-            // On pure cavern rock walls, dim out the top-center winged silhouettes so only Pure Rocks show
             if (uHideSirens > 0.5) {
               float sirenRegion = smoothstep(0.24, 0.05, distance(vUv, vec2(0.5, 0.78)));
               alpha *= (1.0 - sirenRegion * 0.85);
             }
 
-            if (alpha < 0.02) discard;
+            if (alpha < 0.04) discard;
 
             vec3 col = tex.rgb;
             float distToSirens = distance(vUv, vec2(0.5, 0.78));
@@ -94,15 +83,13 @@ export default {
       });
     }
 
-    // Place 6 Towering Cavernous Sea-Stack Formations all around the user in 360°!
-    // Some feature the shadowy distant Sirens perched high in the mist; others are pure jagged cavern walls
     const rockFormationsConfig = [
-      { angleDeg: 0, dist: 3.6, y: 0.1, scaleX: 4.4, scaleY: 2.6, flip: 1.0, hideSirens: false },   // Dead ahead: Main Siren Rocks
-      { angleDeg: -58, dist: 3.1, y: -0.05, scaleX: 4.0, scaleY: 2.5, flip: -1.0, hideSirens: true }, // Left Hallway Wall Cavern Rocks
-      { angleDeg: 58, dist: 3.2, y: 0.0, scaleX: 4.0, scaleY: 2.5, flip: 1.0, hideSirens: true },   // Right Hallway Wall Cavern Rocks
-      { angleDeg: -120, dist: 3.5, y: 0.12, scaleX: 4.2, scaleY: 2.6, flip: 1.0, hideSirens: false }, // Rear-Left L-Bend Distant Sirens
-      { angleDeg: 122, dist: 3.3, y: -0.08, scaleX: 3.9, scaleY: 2.4, flip: -1.0, hideSirens: true }, // Rear-Right Cavern Rocks
-      { angleDeg: 180, dist: 3.7, y: 0.05, scaleX: 4.3, scaleY: 2.5, flip: -1.0, hideSirens: false }, // Behind you (180°): Sirens in the mist
+      { angleDeg: 0, dist: 3.6, y: 0.1, scaleX: 4.4, scaleY: 2.6, flip: 1.0, hideSirens: false },
+      { angleDeg: -58, dist: 3.1, y: -0.05, scaleX: 4.0, scaleY: 2.5, flip: -1.0, hideSirens: true },
+      { angleDeg: 58, dist: 3.2, y: 0.0, scaleX: 4.0, scaleY: 2.5, flip: 1.0, hideSirens: true },
+      { angleDeg: -120, dist: 3.5, y: 0.12, scaleX: 4.2, scaleY: 2.6, flip: 1.0, hideSirens: false },
+      { angleDeg: 122, dist: 3.3, y: -0.08, scaleX: 3.9, scaleY: 2.4, flip: -1.0, hideSirens: true },
+      { angleDeg: 180, dist: 3.7, y: 0.05, scaleX: 4.3, scaleY: 2.5, flip: -1.0, hideSirens: false },
     ];
 
     const rockMaterials = [];
@@ -112,7 +99,7 @@ export default {
       rockMaterials.push(mat);
 
       const mesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(cfg.scaleX, cfg.scaleY, 64, 40),
+        new THREE.PlaneGeometry(cfg.scaleX, cfg.scaleY, 16, 16),
         mat
       );
       const rad = THREE.MathUtils.degToRad(cfg.angleDeg);
@@ -121,13 +108,11 @@ export default {
         cfg.y,
         -Math.cos(rad) * cfg.dist
       );
-      // Face inward toward the viewer at (0, 0, 0)
       mesh.lookAt(0, cfg.y, 0);
       root.add(mesh);
       interactables.push(mesh);
     });
 
-    // FOREGROUND ANCHOR: Matt Damon as Odysseus Tied to the Mast & Screaming
     const damonShaderMat = new THREE.ShaderMaterial({
       uniforms: {
         uMap: { value: damonTex },
@@ -138,35 +123,26 @@ export default {
       depthWrite: true,
       side: THREE.DoubleSide,
       vertexShader: `
-        uniform sampler2D uMap;
         uniform float uTime;
         uniform float uScream;
         varying vec2 vUv;
         void main() {
           vUv = uv;
-          vec4 tex = texture2D(uMap, uv);
-          float luma = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
           vec3 pos = position;
-          pos.z += luma * 0.24;
-          float strain = sin(uTime * (6.0 + uScream * 24.0)) * (0.014 + uScream * 0.04);
+          float strain = sin(uTime * (6.0 + uScream * 24.0)) * (0.012 + uScream * 0.035);
           pos.x += strain * uv.y;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
         }
       `,
       fragmentShader: `
         uniform sampler2D uMap;
-        uniform float uTime;
         uniform float uScream;
         varying vec2 vUv;
         void main() {
           vec4 tex = texture2D(uMap, vUv);
-          float maxCh = max(max(tex.r, tex.g), tex.b);
-          float bgAlpha = smoothstep(0.02, 0.085, maxCh);
-          float bottomFade = smoothstep(0.0, 0.12, vUv.y);
-          float topFade = smoothstep(1.0, 0.94, vUv.y);
-          float leftFade = smoothstep(0.0, 0.06, vUv.x);
-          float alpha = bgAlpha * bottomFade * topFade * leftFade;
-          if (alpha < 0.02) discard;
+          float bottomFade = smoothstep(0.0, 0.1, vUv.y);
+          float alpha = tex.a * bottomFade;
+          if (alpha < 0.04) discard;
 
           vec3 col = tex.rgb * (1.0 + uScream * 0.32);
           gl_FragColor = vec4(col, alpha);
@@ -174,23 +150,20 @@ export default {
       `,
     });
 
-    const damonMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(1.75, 2.33, 72, 96),
-      damonShaderMat
-    );
-    // Placed closer at ~22° right so as you look ahead or pan slightly right through the rock canyon, Matt Damon is right there screaming at the mast
-    const damonAngle = THREE.MathUtils.degToRad(24);
-    const damonDist = 2.35;
-    damonMesh.position.set(
-      Math.sin(damonAngle) * damonDist,
-      -0.08,
-      -Math.cos(damonAngle) * damonDist
-    );
-    damonMesh.lookAt(0, -0.08, 0);
-    root.add(damonMesh);
-    interactables.push(damonMesh);
+    // Place Matt Damon at 24° and -156° so whichever way you walk through the hallway, he's in view!
+    [24, -156].forEach((deg) => {
+      const damonMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.75, 2.33, 16, 16),
+        damonShaderMat
+      );
+      const rad = THREE.MathUtils.degToRad(deg);
+      const dist = 2.35;
+      damonMesh.position.set(Math.sin(rad) * dist, -0.08, -Math.cos(rad) * dist);
+      damonMesh.lookAt(0, -0.08, 0);
+      root.add(damonMesh);
+      interactables.push(damonMesh);
+    });
 
-    // 360° Swirling Sea Mist & Siren Sound Particles surrounding the hallway
     const mistCount = 140;
     const mistGeo = new THREE.BufferGeometry();
     const mistPos = new Float32Array(mistCount * 3);
@@ -232,8 +205,6 @@ export default {
       m.uniforms.uTime.value = time;
     });
     d.damonShaderMat.uniforms.uTime.value = time;
-
-    // Slowly swirl the 360° sea mist around the user
     d.mistParticles.rotation.y = time * (d.tapped ? 0.6 : 0.15);
 
     if (d.tapped) {
