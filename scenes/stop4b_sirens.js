@@ -1,6 +1,5 @@
 // Stop 4B: The Sirens from Afar & Odysseus (Matt Damon) Tied to the Mast
-// Uses Outer-Border Flood-Fill Cutout so the black basalt sea stacks, shadowy Sirens,
-// and Matt Damon's hair/armor stay 100% solid opaque even in medium apartment lighting!
+// 360° cavernous sea stacks around the hallway + ONE Matt Damon tied to the mast
 
 import { loadSolidCutoutTexture } from './cutout.js';
 
@@ -8,14 +7,13 @@ export default {
   id: 'sirens',
   is360: true,
   stepNumber: 'STOP IV-B OF V',
-  title: 'The Siren’s Strait (360°)',
-  location: '📍 The L-Shaped Hallway (Keep Earplugs In!)',
-  instruction:
-    'Pan 360° around the hallway! Jagged Siren sea stacks surround you on all sides—find Odysseus tied to the mast and TAP anywhere to brave the song!',
-  afterTapTitle: '🎶 You Survived the Siren Song!',
+  title: 'The Siren’s Strait',
+  location: '📍 The L-Shaped Hallway',
+  instruction: 'Walk back through the hallway with your earplugs in and look around the rocks.',
+  afterTapTitle: '🎶 You Survived the Sirens',
   afterTapText:
-    'Unlike Odysseus screaming at the mast, your earplugs saved you! As you step back into the Living Room, ask the first person you see: "What is the ultimate guilty-pleasure song that would make you crash your ship into the rocks?"',
-  nextButtonText: 'Step Back into the Living Room (Ithaca) →',
+    'Your earplugs blocked the fatal song. Step back out into the Living Room to reach Ithaca.',
+  nextButtonText: 'Step into the Living Room →',
   defaultTransform: { x: 0, y: 0.0, z: 0.0, scale: 1.0, rotY: 0 },
 
   createScene(THREE) {
@@ -85,10 +83,10 @@ export default {
 
     const rockFormationsConfig = [
       { angleDeg: 0, dist: 3.6, y: 0.1, scaleX: 4.4, scaleY: 2.6, flip: 1.0, hideSirens: false },
-      { angleDeg: -58, dist: 3.1, y: -0.05, scaleX: 4.0, scaleY: 2.5, flip: -1.0, hideSirens: true },
-      { angleDeg: 58, dist: 3.2, y: 0.0, scaleX: 4.0, scaleY: 2.5, flip: 1.0, hideSirens: true },
-      { angleDeg: -120, dist: 3.5, y: 0.12, scaleX: 4.2, scaleY: 2.6, flip: 1.0, hideSirens: false },
-      { angleDeg: 122, dist: 3.3, y: -0.08, scaleX: 3.9, scaleY: 2.4, flip: -1.0, hideSirens: true },
+      { angleDeg: -65, dist: 3.1, y: -0.05, scaleX: 4.0, scaleY: 2.5, flip: -1.0, hideSirens: true },
+      { angleDeg: 65, dist: 3.2, y: 0.0, scaleX: 4.0, scaleY: 2.5, flip: 1.0, hideSirens: true },
+      { angleDeg: -130, dist: 3.5, y: 0.12, scaleX: 4.2, scaleY: 2.6, flip: 1.0, hideSirens: false },
+      { angleDeg: 130, dist: 3.3, y: -0.08, scaleX: 3.9, scaleY: 2.4, flip: -1.0, hideSirens: true },
       { angleDeg: 180, dist: 3.7, y: 0.05, scaleX: 4.3, scaleY: 2.5, flip: -1.0, hideSirens: false },
     ];
 
@@ -113,6 +111,7 @@ export default {
       interactables.push(mesh);
     });
 
+    // ONE single Matt Damon tied to the mast screaming
     const damonShaderMat = new THREE.ShaderMaterial({
       uniforms: {
         uMap: { value: damonTex },
@@ -150,46 +149,20 @@ export default {
       `,
     });
 
-    // Place Matt Damon at 24° and -156° so whichever way you walk through the hallway, he's in view!
-    [24, -156].forEach((deg) => {
-      const damonMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.75, 2.33, 16, 16),
-        damonShaderMat
-      );
-      const rad = THREE.MathUtils.degToRad(deg);
-      const dist = 2.35;
-      damonMesh.position.set(Math.sin(rad) * dist, -0.08, -Math.cos(rad) * dist);
-      damonMesh.lookAt(0, -0.08, 0);
-      root.add(damonMesh);
-      interactables.push(damonMesh);
-    });
-
-    const mistCount = 140;
-    const mistGeo = new THREE.BufferGeometry();
-    const mistPos = new Float32Array(mistCount * 3);
-    for (let i = 0; i < mistCount; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const r = 1.2 + Math.random() * 2.6;
-      mistPos[i * 3] = Math.cos(a) * r;
-      mistPos[i * 3 + 1] = (Math.random() - 0.5) * 2.2;
-      mistPos[i * 3 + 2] = Math.sin(a) * r;
-    }
-    mistGeo.setAttribute('position', new THREE.BufferAttribute(mistPos, 3));
-    const mistParticles = new THREE.Points(
-      mistGeo,
-      new THREE.PointsMaterial({
-        color: 0x99ddff,
-        size: 0.055,
-        transparent: true,
-        opacity: 0.65,
-      })
+    const damonMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.75, 2.33, 16, 16),
+      damonShaderMat
     );
-    root.add(mistParticles);
+    const rad = THREE.MathUtils.degToRad(24);
+    const dist = 2.35;
+    damonMesh.position.set(Math.sin(rad) * dist, -0.08, -Math.cos(rad) * dist);
+    damonMesh.lookAt(0, -0.08, 0);
+    root.add(damonMesh);
+    interactables.push(damonMesh);
 
     root.userData = {
       rockMaterials,
       damonShaderMat,
-      mistParticles,
       tapped: false,
       screamIntensity: 0,
     };
@@ -205,7 +178,6 @@ export default {
       m.uniforms.uTime.value = time;
     });
     d.damonShaderMat.uniforms.uTime.value = time;
-    d.mistParticles.rotation.y = time * (d.tapped ? 0.6 : 0.15);
 
     if (d.tapped) {
       d.screamIntensity = Math.min(1.0, d.screamIntensity + delta * 3.0);

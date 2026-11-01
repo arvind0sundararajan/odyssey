@@ -17,7 +17,7 @@ const STOPS = [
   stop5Ithaca,
 ];
 
-// --- Procedural Web Audio Synthesizer (Zero External Audio Files Needed) ---
+// --- Procedural Web Audio Synthesizer ---
 class OdysseyAudio {
   constructor() {
     this.ctx = null;
@@ -80,14 +80,14 @@ const audio = new OdysseyAudio();
 // --- State ---
 let currentStopIndex = 0;
 let savedPlacements = {};
+let anchorGroup = null;
 let activeRoot = null;
 let activeInteractables = [];
 let hasTappedCurrentStop = false;
 
-// Camera Look Angles (Gyroscope + Touch/Mouse Drag Fusion)
+// Camera Look Angles (Absolute Compass + Gravity Pitch + Touch Drag)
 let yaw = 0;
 let pitch = 0;
-let gyroBaseAlpha = null;
 let isPointerDown = false;
 let lastPointerX = 0;
 let lastPointerY = 0;
@@ -118,12 +118,16 @@ scene.add(dirLight);
 const raycaster = new THREE.Raycaster();
 const pointerNDC = new THREE.Vector2();
 
-// --- Load Saved Placements from Server or Static JSON ---
+// --- Load Saved Placements ---
 async function fetchPlacements() {
   try {
+    const localOverride = localStorage.getItem('odyssey_placements');
     const res = await fetch('./placements.json');
     if (res.ok) {
       savedPlacements = await res.json();
+    }
+    if (localOverride) {
+      savedPlacements = { ...savedPlacements, ...JSON.parse(localOverride) };
     }
   } catch (e) {
     console.warn('Using default scene placements:', e);
@@ -137,11 +141,13 @@ function getTransformForStop(stop) {
   };
 }
 
+// anchorGroup rotates around (0,0,0) by rotY (Compass Angle in Room),
+// while activeRoot sits at (x, y, z) inside anchorGroup so rotY swings the object around the room walls!
 function applyTransformToActiveRoot(t) {
-  if (!activeRoot) return;
+  if (!activeRoot || !anchorGroup) return;
+  anchorGroup.rotation.y = Number(t.rotY);
   activeRoot.position.set(Number(t.x), Number(t.y), Number(t.z));
   activeRoot.scale.setScalar(Number(t.scale));
-  activeRoot.rotation.y = Number(t.rotY);
 }
 
 // --- Load a Stop Module ---
@@ -150,26 +156,22 @@ function loadStop(index) {
   const stop = STOPS[currentStopIndex];
   hasTappedCurrentStop = false;
 
-  // Reset camera look direction so each new stop starts right in front of the user
-  yaw = 0;
-  pitch = 0;
-  gyroBaseAlpha = null;
-
-  // Clean up previous 3D group
-  if (activeRoot) {
-    scene.remove(activeRoot);
+  if (anchorGroup) {
+    scene.remove(anchorGroup);
+    anchorGroup = null;
     activeRoot = null;
   }
   activeInteractables = [];
 
-  // Instantiate new 3D stop scene
+  anchorGroup = new THREE.Group();
   const created = stop.createScene(THREE);
   activeRoot = created.root;
   activeInteractables = created.interactables || [activeRoot];
 
+  anchorGroup.add(activeRoot);
   const t = getTransformForStop(stop);
   applyTransformToActiveRoot(t);
-  scene.add(activeRoot);
+  scene.add(anchorGroup);
 
   // Update HUD
   document.getElementById('step-badge').textContent = stop.stepNumber;
@@ -179,7 +181,6 @@ function loadStop(index) {
   document.getElementById('after-tap-box').classList.add('hidden');
   document.getElementById('next-stop-btn').textContent = stop.nextButtonText;
 
-  // Progress dots
   const dotsContainer = document.getElementById('progress-dots');
   dotsContainer.innerHTML = '';
   STOPS.forEach((_, idx) => {
@@ -188,7 +189,6 @@ function loadStop(index) {
     dotsContainer.appendChild(dot);
   });
 
-  // Sync Tuner UI
   syncTunerControls(stop, t);
 }
 
@@ -231,7 +231,6 @@ window.addEventListener('pointerup', (e) => {
   if (!isPointerDown) return;
   isPointerDown = false;
 
-  // If finger/mouse barely moved, treat as a TAP on the 3D scene
   const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
   if (dist < 14 && activeRoot) {
     pointerNDC.x = (e.clientX / window.innerWidth) * 2 - 1;
@@ -245,17 +244,24 @@ window.addEventListener('pointerup', (e) => {
   }
 });
 
-// --- Mobile Gyroscope Support ---
+// --- Mobile Absolute Compass + Gyroscope Support ---
 function enableGyroscope() {
   const handleOrientation = (e) => {
-    if (e.alpha === null || isPointerDown) return;
-    const alphaRad = THREE.MathUtils.degToRad(e.alpha);
-    const betaRad = THREE.MathUtils.degToRad(e.beta || 90);
-    if (gyroBaseAlpha === null) {
-      gyroBaseAlpha = alphaRad;
+    if (isPointerDown) return;
+    // Use iOS webkitCompassHeading (True North) or Android alpha so room directions stay consistent!
+    let headingDeg = null;
+    if (typeof e.webkitCompassHeading === 'number') {
+      headingDeg = -e.webkitCompassHeading;
+    } else if (typeof e.alpha === 'number') {
+      headingDeg = e.alpha;
     }
-    yaw = alphaRad - gyroBaseAlpha;
-    pitch = THREE.MathUtils.clamp(betaRad - Math.PI / 2, -Math.PI / 2.5, Math.PI / 2.5);
+    if (headingDeg !== null) {
+      yaw = THREE.MathUtils.degToRad(headingDeg);
+    }
+    if (typeof e.beta === 'number') {
+      const betaRad = THREE.MathUtils.degToRad(e.beta);
+      pitch = THREE.MathUtils.clamp(betaRad - Math.PI / 2, -Math.PI / 2.5, Math.PI / 2.5);
+    }
   };
 
   if (
@@ -270,6 +276,7 @@ function enableGyroscope() {
       })
       .catch(() => {});
   } else {
+    window.addEventListener('deviceorientationabsolute', handleOrientation);
     window.addEventListener('deviceorientation', handleOrientation);
   }
 }
@@ -285,12 +292,11 @@ async function startCamera() {
     video.srcObject = stream;
     await video.play();
   } catch (err) {
-    console.info('Camera unavailable or denied; using atmospheric Aegean night backdrop.');
     video.style.display = 'none';
   }
 }
 
-// --- Tuner Controls (?tune=1 or ⚙️ Tune button) ---
+// --- Tuner Controls (?tune=1) ---
 const tunerPanel = document.getElementById('tuner-panel');
 const stopSelect = document.getElementById('tuner-stop-select');
 const inputs = {
@@ -329,30 +335,33 @@ function initTuner() {
     });
   });
 
+  // "🎯 Center Here" places the object in the exact compass direction & height you are currently aiming!
   document.getElementById('recenter-btn').addEventListener('click', () => {
-    yaw = 0;
-    pitch = 0;
-    gyroBaseAlpha = null;
+    const stop = STOPS[currentStopIndex];
+    const current = getTransformForStop(stop);
+    current.rotY = Number(yaw.toFixed(2));
+    savedPlacements[stop.id] = current;
+    applyTransformToActiveRoot(current);
+    syncTunerControls(stop, current);
   });
 
   document.getElementById('save-placement-btn').addEventListener('click', async () => {
     const statusEl = document.getElementById('save-status');
-    statusEl.textContent = 'Saving...';
+    localStorage.setItem('odyssey_placements', JSON.stringify(savedPlacements));
     try {
-      const res = await fetch('/api/placements', {
+      await navigator.clipboard.writeText(JSON.stringify(savedPlacements, null, 2));
+      statusEl.textContent = '✅ Saved & JSON copied to clipboard!';
+    } catch {
+      statusEl.textContent = '✅ Saved on device!';
+    }
+    try {
+      await fetch('/api/placements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(savedPlacements),
       });
-      if (res.ok) {
-        statusEl.textContent = '✅ Saved to placements.json!';
-      } else {
-        statusEl.textContent = '⚠️ Could not save';
-      }
-    } catch {
-      statusEl.textContent = '⚠️ Offline save only';
-    }
-    setTimeout(() => (statusEl.textContent = ''), 2500);
+    } catch {}
+    setTimeout(() => (statusEl.textContent = ''), 3000);
   });
 
   document.getElementById('tune-toggle-btn').addEventListener('click', () => {
@@ -394,7 +403,7 @@ function checkOffscreenIndicator() {
     offscreenEl.classList.add('hidden');
     return;
   }
-  tempVec.copy(activeRoot.position);
+  activeRoot.getWorldPosition(tempVec);
   tempVec.project(camera);
   const isBehind = tempVec.z > 1;
   const isOff = isBehind || Math.abs(tempVec.x) > 0.95 || Math.abs(tempVec.y) > 0.95;
@@ -433,7 +442,6 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// --- UI Initialization ---
 document.getElementById('start-btn').addEventListener('click', async () => {
   audio.init();
   enableGyroscope();
