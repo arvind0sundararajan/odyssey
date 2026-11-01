@@ -28,7 +28,7 @@ export default {
     const interactables = [];
 
     const texLoader = new THREE.TextureLoader();
-    const circeTex = texLoader.load('/assets/circe_nolan.jpg');
+    const circeTex = texLoader.load('./assets/circe_nolan.jpg');
     circeTex.colorSpace = THREE.SRGBColorSpace;
 
     const circeShaderMat = new THREE.ShaderMaterial({

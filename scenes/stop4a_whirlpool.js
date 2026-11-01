@@ -19,7 +19,7 @@ export default {
     const interactables = [];
 
     const texLoader = new THREE.TextureLoader();
-    const whirlpoolTex = texLoader.load('/assets/whirlpool_nolan.jpg');
+    const whirlpoolTex = texLoader.load('./assets/whirlpool_nolan.jpg');
     whirlpoolTex.colorSpace = THREE.SRGBColorSpace;
 
     const whirlpoolShaderMat = new THREE.ShaderMaterial({

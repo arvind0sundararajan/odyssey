@@ -19,7 +19,7 @@ export default {
     const interactables = [];
 
     const texLoader = new THREE.TextureLoader();
-    const horseTex = texLoader.load('/assets/horse_nolan.jpg');
+    const horseTex = texLoader.load('./assets/horse_nolan.jpg');
     horseTex.colorSpace = THREE.SRGBColorSpace;
 
     // Custom GLSL Shader:

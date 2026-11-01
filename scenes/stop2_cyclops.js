@@ -19,7 +19,7 @@ export default {
     const interactables = [];
 
     const texLoader = new THREE.TextureLoader();
-    const cyclopsTex = texLoader.load('/assets/cyclops_nolan.jpg');
+    const cyclopsTex = texLoader.load('./assets/cyclops_nolan.jpg');
     cyclopsTex.colorSpace = THREE.SRGBColorSpace;
 
     const cyclopsShaderMat = new THREE.ShaderMaterial({

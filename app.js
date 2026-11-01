@@ -118,10 +118,10 @@ scene.add(dirLight);
 const raycaster = new THREE.Raycaster();
 const pointerNDC = new THREE.Vector2();
 
-// --- Load Saved Placements from Server ---
+// --- Load Saved Placements from Server or Static JSON ---
 async function fetchPlacements() {
   try {
-    const res = await fetch('/api/placements');
+    const res = await fetch('./placements.json');
     if (res.ok) {
       savedPlacements = await res.json();
     }
@@ -360,6 +360,7 @@ function initTuner() {
   });
 
   if (new URLSearchParams(window.location.search).get('tune') === '1') {
+    document.getElementById('tune-toggle-btn').classList.remove('hidden');
     tunerPanel.classList.remove('hidden');
   }
 }

@@ -22,10 +22,10 @@ export default {
     const interactables = [];
 
     const texLoader = new THREE.TextureLoader();
-    const rocksTex = texLoader.load('/assets/sirens_rocks_nolan.jpg');
+    const rocksTex = texLoader.load('./assets/sirens_rocks_nolan.jpg');
     rocksTex.colorSpace = THREE.SRGBColorSpace;
 
-    const damonTex = texLoader.load('/assets/odysseus_mast_nolan.jpg');
+    const damonTex = texLoader.load('./assets/odysseus_mast_nolan.jpg');
     damonTex.colorSpace = THREE.SRGBColorSpace;
 
     // Factory for a 2.5D cavernous rock formation shader material (with per-instance phase & flip)
